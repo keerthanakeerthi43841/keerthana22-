@@ -4,29 +4,30 @@
 # ==============================================================
 
 import os
-import sys
-import subprocess
+#import sys
+#import subprocess
 
 # ---------- Auto-install required packages ----------
-def install(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+#def install(package):
+    #subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
-required_packages = [
-    "streamlit", "opencv-python-headless", "easyocr", "numpy",
-    "scikit-image", "deepface", "retinaface", "pandas",
-    "tensorflow==2.15.0", "keras==2.15.0", "tf-keras", "requests"
-]
+#required_packages = [
+    #"streamlit", "opencv-python-headless", "easyocr", "numpy",
+    #"scikit-image", "deepface", "retinaface", "pandas",
+    #"tensorflow==2.15.0", "keras==2.15.0", "tf-keras", "requests"
+#]
 
-for pkg in required_packages:
-    try:
-        __import__(pkg)
-    except ImportError:
-        install(pkg)
+#for pkg in required_packages:
+   # try:
+        #__import__(pkg)
+    #except ImportError:
+        #install(pkg)
 
 # ---------- Imports after installation ----------
 import streamlit as st
 import cv2
 import numpy as np
+from PIL import Image
 import easyocr
 from skimage.metrics import structural_similarity as ssim
 from deepface import DeepFace
@@ -186,4 +187,5 @@ elif option == "Fraud Report Summary":
     st.table(df)
     st.success("✅ AI Fraud Detection Summary Generated Successfully.")
     st.info("All modules executed successfully. No critical frauds detected.")
+
 
