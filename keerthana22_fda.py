@@ -19,7 +19,7 @@ required_packages = [
 
 for pkg in required_packages:
     try:
-        _import_(pkg)
+        __import__(pkg)
     except ImportError:
         install(pkg)
 
@@ -186,3 +186,4 @@ elif option == "Fraud Report Summary":
     st.table(df)
     st.success("✅ AI Fraud Detection Summary Generated Successfully.")
     st.info("All modules executed successfully. No critical frauds detected.")
+
