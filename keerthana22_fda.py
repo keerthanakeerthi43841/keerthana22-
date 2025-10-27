@@ -192,4 +192,5 @@ elif option == "📊 Fraud Analysis Dashboard":
 
 # ---------- FOOTER ----------
 st.markdown("---")
+
 st.caption("© 2025 AI Fraud Detection | Developed by Karthikeya Ayyagari")
