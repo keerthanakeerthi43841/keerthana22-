@@ -1,191 +1,248 @@
+# ==========================================
+# AI Banking Fraud Detection & Verification
+# ==========================================
 
-# ==============================================================
-# AI Fraud Detection System – Full Project Version (Global Ready)
-# ==============================================================
-
-import os
-#import sys
-#import subprocess
-
-# ---------- Auto-install required packages ----------
-#def install(package):
-    #subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-#required_packages = [
-    #"streamlit", "opencv-python-headless", "easyocr", "numpy",
-    #"scikit-image", "deepface", "retinaface", "pandas",
-    #"tensorflow==2.15.0", "keras==2.15.0", "tf-keras", "requests"
-#]
-
-#for pkg in required_packages:
-   # try:
-        #__import__(pkg)
-    #except ImportError:
-        #install(pkg)
-
-# ---------- Imports after installation ----------
 import streamlit as st
 import cv2
 import numpy as np
-from PIL import Image
-import easyocr
 from skimage.metrics import structural_similarity as ssim
-from deepface import DeepFace
+from PIL import Image
 import pandas as pd
-import re
-import requests
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
-# ---------- Streamlit Setup ----------
-st.set_page_config(page_title="AI Fraud Detection System", layout="wide")
-st.title("🧠 AI Fraud Detection System")
-st.write("This system analyzes documents, IDs, and signatures to detect forgery, tampering, or suspicious patterns using AI.")
+# ------------------- SAFE IMPORT (DeepFace) -------------------
+try:
+    from deepface import DeepFace
+    deepface_available = True
+except Exception:
+    deepface_available = False
 
-# ---------- Sidebar Navigation ----------
-option = st.sidebar.selectbox(
-    "Select Module",
-    ["Aadhar Verification", "PAN Verification", "AI-based KYC", "Document Tampering", "Signature Verification", "Fraud Report Summary"]
-)
+# ------------------- PAGE CONFIG -------------------
+st.set_page_config(page_title="AI Banking Verification Portal", layout="wide")
 
-# ---------- AADHAR VERIFICATION ----------
-if option == "Aadhar Verification":
-    st.header("🪪 Aadhar Number Verification (Pattern-Based)")
-    aadhar_input = st.text_input("Enter Aadhar Number (XXXX-XXXX-XXXX):")
+# ------------------- STYLING (Blue-Silver Gradient) -------------------
+st.markdown("""
+<style>
+/* ===== Background ===== */
+.stApp {
+    background: linear-gradient(135deg, #eaf1fb, #f5f8fa);
+    color: #0b2545;
+    font-family: 'Segoe UI', sans-serif;
+}
 
-    if st.button("Verify Aadhar"):
-        if re.match(r"^\d{4}-\d{4}-\d{4}$", aadhar_input):
-            st.success("✅ Valid Aadhar number format detected.")
-            st.info("AI cross-verification simulated. No forgery patterns detected.")
-        else:
-            st.error("❌ Invalid Aadhar format! Please enter like 1234-5678-9101")
+/* ===== Sidebar ===== */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #001F54, #004AAD);
+    color: white;
+}
+[data-testid="stSidebar"] * {
+    color: #FFFFFF !important;
+    font-weight: 500;
+}
+[data-testid="stSidebar"] [aria-checked="true"] {
+    background-color: #4682B4 !important;
+    border-radius: 6px;
+    font-weight: bold;
+}
 
-# ---------- PAN VERIFICATION ----------
-elif option == "PAN Verification":
-    st.header("🧾 PAN Card Verification (Pattern-Based)")
-    pan_input = st.text_input("Enter PAN Number (e.g., ABCDE1234F):")
+/* ===== Headers ===== */
+h1, h2, h3, h4 {
+    color: #002855 !important;
+    font-weight: 700;
+}
+p, li {
+    color: #0b2545 !important;
+}
 
-    if st.button("Verify PAN"):
-        if re.match(r"^[A-Z]{5}[0-9]{4}[A-Z]{1}$", pan_input):
-            st.success("✅ Valid PAN number format detected.")
-            st.info("AI simulated PAN check successful (No forgery detected).")
-        else:
-            st.error("❌ Invalid PAN format! Enter a valid PAN like ABCDE1234F")
+/* ===== Buttons ===== */
+.stButton>button {
+    background-color: #004aad;
+    color: white;
+    font-weight: bold;
+    border-radius: 10px;
+    border: none;
+    padding: 8px 18px;
+}
+.stButton>button:hover {
+    background-color: #002855;
+}
 
-# ---------- ONLINE KYC MODULE ----------
-elif option == "AI-based KYC":
-    st.header("🧍 AI-based KYC Verification (Face Match)")
-    st.write("Upload two facial images: one from ID document and one live/selfie to verify identity.")
+/* ===== Inputs ===== */
+.stTextInput>div>div>input, .stFileUploader label {
+    color: #0b2545 !important;
+    font-weight: 500;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        id_image = st.file_uploader("Upload ID Image", type=["jpg", "jpeg", "png"])
-    with col2:
-        selfie_image = st.file_uploader("Upload Selfie Image", type=["jpg", "jpeg", "png"])
+# ------------------- APP HEADER -------------------
+st.title("🏦 AI Banking Fraud Detection & Verification System")
+st.caption("A Secure AI-Powered System for Document, KYC, and Transaction Fraud Prevention")
 
-    if id_image and selfie_image:
-        id_bytes = np.frombuffer(id_image.read(), np.uint8)
-        selfie_bytes = np.frombuffer(selfie_image.read(), np.uint8)
+# ------------------- SIDEBAR MENU -------------------
+st.sidebar.title("🔍 Fraud Detection Modules")
+option = st.sidebar.radio("Select a Module", [
+    "Dashboard Home",
+    "Document Tampering",
+    "Signature Verification",
+    "Aadhaar Fraud Detection",
+    "PAN Fraud Detection",
+    "AI-Based KYC Verification",
+    "Unusual Pattern Detection"
+])
 
-        img1 = cv2.imdecode(id_bytes, cv2.IMREAD_COLOR)
-        img2 = cv2.imdecode(selfie_bytes, cv2.IMREAD_COLOR)
-
-        with st.spinner("Analyzing facial similarity..."):
-            try:
-                result = DeepFace.verify(img1, img2, enforce_detection=False)
-                similarity = 1 - result["distance"]
-
-                st.write(f"Similarity Score: *{similarity:.2f}*")
-                if similarity > 0.75:
-                    st.success("✅ Face match successful! KYC verified.")
-                else:
-                    st.error("❌ Face mismatch detected! Possible identity fraud.")
-            except Exception as e:
-                st.warning(f"Error in verification: {e}")
-
-# ---------- DOCUMENT TAMPERING DETECTION ----------
-elif option == "Document Tampering":
-    st.header("📄 Document Tampering & OCR Verification")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        original_doc = st.file_uploader("Upload Original Document", type=["jpg", "jpeg", "png"])
-    with col2:
-        suspect_doc = st.file_uploader("Upload Suspected Document", type=["jpg", "jpeg", "png"])
-
-    if original_doc and suspect_doc:
-        img1 = cv2.imdecode(np.frombuffer(original_doc.read(), np.uint8), cv2.IMREAD_COLOR)
-        img2 = cv2.imdecode(np.frombuffer(suspect_doc.read(), np.uint8), cv2.IMREAD_COLOR)
-
+# ------------------- FUNCTIONS -------------------
+def compare_images(img1_bytes, img2_bytes):
+    try:
+        img1 = cv2.imdecode(np.frombuffer(img1_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
+        img2 = cv2.imdecode(np.frombuffer(img2_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
         img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
-        gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-        gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        score, diff = ssim(img1, img2, full=True)
+        return round(score, 3), diff
+    except Exception as e:
+        st.error(f"Image comparison failed: {e}")
+        return None, None
 
-        score, diff = ssim(gray1, gray2, full=True)
-        diff = (diff * 255).astype("uint8")
+def generate_pdf_report(title, result_text, score=None):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(50, 800, "AI Banking Fraud Detection Report")
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 770, f"Module: {title}")
+    c.drawString(50, 750, f"Result: {result_text}")
+    if score is not None:
+        c.drawString(50, 730, f"Similarity Score: {score}")
+    c.setFont("Helvetica", 11)
+    c.drawString(50, 700, "Key Fraud Detection Principles:")
+    c.drawString(70, 680, "1. Image and signature verification using AI-based SSIM and ORB.")
+    c.drawString(70, 660, "2. Face matching through Deep Learning (DeepFace).")
+    c.drawString(70, 640, "3. Format and metadata validation for KYC documents.")
+    c.drawString(70, 620, "4. Anomaly detection in transaction datasets.")
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer
 
-        st.write(f"Similarity Score: *{score:.2f}*")
+# ------------------- MODULES -------------------
 
-        if score < 0.85:
-            st.error("⚠ Possible tampering detected between the documents.")
-        else:
-            st.success("✅ Documents appear identical (No tampering).")
+# Dashboard Home
+if option == "Dashboard Home":
+    st.markdown("""
+    <h3>🏛 Welcome to Secure Bank’s AI Verification Dashboard</h3>
+    <p>Use this intelligent system to verify customer documents, detect potential frauds, and ensure compliance.</p>
+    <ul>
+    <li>📄 Document Forgery Detection</li>
+    <li>✍ Signature Verification</li>
+    <li>🪪 Aadhaar & PAN Validation</li>
+    <li>🧬 AI-Based KYC Verification</li>
+    <li>📊 Transaction Pattern Monitoring</li>
+    </ul>
+    """, unsafe_allow_html=True)
 
-        st.image(diff, caption="Difference Map", use_container_width=True)
-
-        reader = easyocr.Reader(["en"])
-        text1 = " ".join([res[1] for res in reader.readtext(img1)])
-        text2 = " ".join([res[1] for res in reader.readtext(img2)])
-
-        st.subheader("🧾 OCR Text Comparison:")
-        st.write("Original:", text1)
-        st.write("Suspect:", text2)
-
-# ---------- SIGNATURE VERIFICATION ----------
-elif option == "Signature Verification":
-    st.header("✍ Signature Forgery Detection")
-
+# Document Tampering
+elif option == "Document Tampering":
+    st.header("📄 Document Forgery Detection")
     col1, col2 = st.columns(2)
     with col1:
-        sig1_file = st.file_uploader("Upload Original Signature", type=["jpg", "png", "jpeg"])
+        doc1 = st.file_uploader("Upload Original Document", type=["jpg", "png", "jpeg"])
     with col2:
-        sig2_file = st.file_uploader("Upload Suspect Signature", type=["jpg", "png", "jpeg"])
+        doc2 = st.file_uploader("Upload Suspected Document", type=["jpg", "png", "jpeg"])
 
-    if sig1_file and sig2_file:
-        sig1 = cv2.imdecode(np.frombuffer(sig1_file.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
-        sig2 = cv2.imdecode(np.frombuffer(sig2_file.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
+    if doc1 and doc2:
+        score, _ = compare_images(doc1.read(), doc2.read())
+        if score is not None:
+            result_text = "✅ No significant alterations detected." if score > 0.85 else "⚠ Possible forgery detected."
+            (st.success if score > 0.85 else st.error)(result_text)
+            pdf = generate_pdf_report("Document Tampering", result_text, score)
+            st.download_button("📘 Download PDF Report", pdf, file_name="Document_Report.pdf")
 
+# Signature Verification
+elif option == "Signature Verification":
+    st.header("✍ Signature Verification")
+    col1, col2 = st.columns(2)
+    with col1:
+        sig1 = st.file_uploader("Upload Original Signature", type=["jpg", "png", "jpeg"])
+    with col2:
+        sig2 = st.file_uploader("Upload Submitted Signature", type=["jpg", "png", "jpeg"])
+
+    if sig1 and sig2:
+        sig1_img = cv2.imdecode(np.frombuffer(sig1.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
+        sig2_img = cv2.imdecode(np.frombuffer(sig2.read(), np.uint8), cv2.IMREAD_GRAYSCALE)
         orb = cv2.ORB_create()
-        kp1, des1 = orb.detectAndCompute(sig1, None)
-        kp2, des2 = orb.detectAndCompute(sig2, None)
-
-        if des1 is None or des2 is None:
-            st.warning("⚠ Unable to detect enough signature features.")
-        else:
+        kp1, des1 = orb.detectAndCompute(sig1_img, None)
+        kp2, des2 = orb.detectAndCompute(sig2_img, None)
+        if des1 is not None and des2 is not None:
             bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
             matches = bf.match(des1, des2)
             score = len(matches)
+            result_text = "✅ Genuine Signature" if score > 50 else "❌ Forged Signature Detected"
+            (st.success if score > 50 else st.error)(result_text)
+            pdf = generate_pdf_report("Signature Verification", result_text)
+            st.download_button("📘 Download PDF Report", pdf, file_name="Signature_Report.pdf")
 
-            result_img = cv2.drawMatches(sig1, kp1, sig2, kp2, matches[:20], None, flags=2)
-            st.image(result_img, caption="Feature Matching", use_container_width=True)
-            st.write(f"Match Score: *{score}*")
+# Aadhaar Verification
+elif option == "Aadhaar Fraud Detection":
+    st.header("🪪 Aadhaar Verification")
+    aadhaar_num = st.text_input("Enter Aadhaar Number (XXXX-XXXX-XXXX):")
+    if st.button("Verify Aadhaar"):
+        valid = len(aadhaar_num) == 14 and aadhaar_num.count("-") == 2
+        result_text = "✅ Aadhaar number format valid." if valid else "❌ Invalid Aadhaar format."
+        (st.success if valid else st.error)(result_text)
+        pdf = generate_pdf_report("Aadhaar Fraud Detection", result_text)
+        st.download_button("📘 Download PDF Report", pdf, file_name="Aadhaar_Report.pdf")
 
-            if score > 50:
-                st.success("✅ Signatures match (Genuine)")
-            else:
-                st.error("❌ Signature forgery detected!")
+# PAN Verification
+elif option == "PAN Fraud Detection":
+    st.header("💳 PAN Card Verification")
+    pan = st.text_input("Enter PAN Number (ABCDE1234F):")
+    if st.button("Validate PAN"):
+        valid = len(pan) == 10 and pan[:5].isalpha() and pan[5:9].isdigit() and pan[-1].isalpha()
+        result_text = "✅ Valid PAN Structure." if valid else "❌ Invalid PAN Format."
+        (st.success if valid else st.error)(result_text)
+        pdf = generate_pdf_report("PAN Fraud Detection", result_text)
+        st.download_button("📘 Download PDF Report", pdf, file_name="PAN_Report.pdf")
 
-# ---------- FRAUD SUMMARY ----------
-elif option == "Fraud Report Summary":
-    st.header("📊 Fraud Detection Summary Report")
+# AI-Based KYC Verification
+elif option == "AI-Based KYC Verification":
+    st.header("🧬 AI-Powered KYC Face Verification")
+    if not deepface_available:
+        st.warning("⚠ DeepFace or TensorFlow not available. Install with:\n"
+                   "pip install tensorflow>=2.16.0 keras>=2.16.0 deepface")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            selfie = st.file_uploader("Upload Selfie Photo", type=["jpg", "png", "jpeg"])
+        with col2:
+            id_photo = st.file_uploader("Upload ID Photo", type=["jpg", "png", "jpeg"])
+        if selfie and id_photo:
+            st.info("Running AI-based face match verification...")
+            try:
+                result = DeepFace.verify(np.array(Image.open(selfie)), np.array(Image.open(id_photo)))
+                verified = result.get("verified", False)
+                result_text = "✅ KYC Face Match Successful" if verified else "❌ KYC Face Mismatch Detected"
+                (st.success if verified else st.error)(result_text)
+                pdf = generate_pdf_report("AI-Based KYC Verification", result_text)
+                st.download_button("📘 Download PDF Report", pdf, file_name="KYC_Report.pdf")
+            except Exception as e:
+                st.error(f"Error during KYC verification: {e}")
 
-    report_data = {
-        "Module": ["Aadhar", "PAN", "KYC", "Document", "Signature"],
-        "Status": ["Verified", "Verified", "Checked", "Analyzed", "Matched"],
-        "Risk_Level": ["Low", "Low", "Medium", "Medium", "Low"]
-    }
-
-    df = pd.DataFrame(report_data)
-    st.table(df)
-    st.success("✅ AI Fraud Detection Summary Generated Successfully.")
-    st.info("All modules executed successfully. No critical frauds detected.")
-
-
+# Unusual Pattern Detection
+elif option == "Unusual Pattern Detection":
+    st.header("📊 Unusual Transaction Pattern Detection")
+    uploaded_file = st.file_uploader("Upload Transaction Data (CSV, Excel)", type=["csv", "xlsx", "xls"])
+    if uploaded_file:
+        try:
+            data = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+            st.dataframe(data.head())
+            z_scores = (data - data.mean()) / data.std()
+            anomalies = data[(abs(z_scores) > 3).any(axis=1)]
+            st.subheader("🔎 Detected Unusual Patterns:")
+            st.dataframe(anomalies)
+            result_text = f"Detected {len(anomalies)} unusual patterns."
+            pdf = generate_pdf_report("Unusual Pattern Detection", result_text)
+            st.download_button("📘 Download PDF Report", pdf, file_name="Pattern_Report.pdf")
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
