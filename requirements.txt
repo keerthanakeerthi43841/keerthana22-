@@ -1,9 +1,9 @@
-streamlit==1.24.1
+streamlit==1.38.0
 opencv-python-headless==4.10.0.84
-easyocr==1.6.2
-numpy>=1.23.5,<2.0
-scikit-image==0.25.2
-deepface==0.0.90
-pandas==2.3.3
-Pillow==12.0.0
-reportlab==4.4.4
+easyocr==1.7.1
+numpy==1.26.4
+scikit-image==0.24.0
+deepface==0.0.93
+pandas==2.2.3
+Pillow==10.4.0
+reportlab==4.2.2
